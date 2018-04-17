@@ -80,9 +80,10 @@ public class Calculator {
                     Logger.d("Thread start!");
                     try {
                         v8 = V8.createV8Runtime();
-                        NodeJS nodeJS = NodeJS.createNodeJS();
-                        Logger.d(nodeJS.getNodeVersion());
-                        nodeJS.release();
+                        Logger.d(V8.getV8Version());
+//                        NodeJS nodeJS = NodeJS.createNodeJS();
+//                        Logger.d(nodeJS.getNodeVersion());
+//                        nodeJS.release();
                         try (AutoRelease _1 = AutoRelease.obtain(v8)) {
                             StringBuilder stringBuilder = new StringBuilder();
                             try (InputStreamReader inputStreamReader = new InputStreamReader(resources.getAssets().open("math.js"))) {
