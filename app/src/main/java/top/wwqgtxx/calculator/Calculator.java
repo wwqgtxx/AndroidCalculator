@@ -21,13 +21,10 @@ import com.orhanobut.logger.Logger;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 
 /**
  * Calculator Class
- * Created by Administrator on 2018/3/26.
+ * Created by wwqgtxx on 2018/3/26.
  */
 
 public class Calculator {
@@ -60,30 +57,57 @@ public class Calculator {
         static final int UPDATE_TEXT_VIEW = 0xff;
 
 
+        /**
+         * thread for calculate
+         */
         final HandlerThread handlerThread;
+        /**
+         * daemon thread for timeout
+         */
         final HandlerThread daemonHandlerThread;
+        /**
+         * handler for update ui
+         */
         final Handler uiHandler;
+        /**
+         * handler for calculate
+         */
         final Handler handler;
+        /**
+         * handler for timeout
+         */
         final Handler daemonHandler;
-        final MathContext mathContext;
+        /**
+         * V8 engine for calculate
+         */
         V8 v8 = null;
+        /**
+         * function handle to eval the expr
+         */
         V8Function eval = null;
+        /**
+         * last expr string
+         */
         String lastString;
+        /**
+         * now expr string
+         */
         String nowString;
 
         CalculatorImpl(@NonNull Resources resources, @NonNull Handler uiHandler) {
             this.uiHandler = uiHandler;
-            mathContext = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
             handlerThread = new HandlerThread("CalculatorImpl-Thread") {
                 @Override
                 public void run() {
                     Logger.d("Thread start!");
                     try {
+                        // init V8 engine
                         v8 = V8.createV8Runtime();
                         Logger.d(V8.getV8Version());
 //                        NodeJS nodeJS = NodeJS.createNodeJS();
 //                        Logger.d(nodeJS.getNodeVersion());
 //                        nodeJS.release();
+                        // init math.js
                         try (AutoRelease _1 = AutoRelease.obtain(v8)) {
                             StringBuilder stringBuilder = new StringBuilder();
                             try (InputStreamReader inputStreamReader = new InputStreamReader(resources.getAssets().open("math.js"))) {
@@ -101,6 +125,7 @@ public class Calculator {
                                     v8.executeVoidScript(stringBuilder.toString(), "math.js", 0);
                                 }
                             }
+                            // get my_eval()
                             eval = (V8Function) v8.executeObjectScript("" +
                                     "function my_eval(val,precision=" + MAX_PRECISION + "){\n" +
                                     "   val = math.eval(val);\n" +
@@ -117,6 +142,7 @@ public class Calculator {
                                     "   return str;\n" +
                                     "};\n" +
                                     "my_eval", "my_eval.js", 0);
+                            // run the HandlerThread loop
                             try (AutoRelease _2 = AutoRelease.obtain(eval)) {
                                 super.run();
                             }
@@ -242,6 +268,7 @@ public class Calculator {
             String expr = lastString;
             int where = 0;
             int n = 0;
+            // make brackets matches
             while (where < expr.length()) {
                 char c = expr.charAt(where);
                 if (c == '(') {
@@ -255,7 +282,9 @@ public class Calculator {
                 expr += ')';
             }
             lastString = expr;
+            // help to calculate '°'
             expr = expr.replaceAll("°", "deg");
+            // help to calculate '√('
             where = expr.indexOf("√(");
             try {
                 while (where != -1) {
@@ -300,6 +329,7 @@ public class Calculator {
                 return;
             }
             Logger.d(expr);
+            // do real calculate in V8 engine
             try (DoWhenTimeout _1 = DoWhenTimeout.obtain(daemonHandler, this::updateTextView, CAL_TIMEOUT_MILLIS / 10);
                  DoWhenTimeout _2 = DoWhenTimeout.obtain(daemonHandler, v8::terminateExecution, CAL_TIMEOUT_MILLIS)) {
                 V8Array para = new V8Array(v8).push(expr);
@@ -358,6 +388,11 @@ public class Calculator {
             handlerThread.quit();
         }
 
+        /**
+         * parse the massage from handle
+         * @param msg message
+         * @return always true
+         */
         @Override
         @WorkerThread
         public boolean handleMessage(Message msg) {
@@ -404,52 +439,92 @@ public class Calculator {
         }
     }
 
+    /**
+     * real calculator implement object
+     */
     private final CalculatorImpl impl;
 
+    /**
+     * init a calculator
+     *
+     * @param resources the Resources to get assert file
+     * @param uiHandler a uiHandler use for updateTextView
+     */
     Calculator(@NonNull Resources resources, @NonNull Handler uiHandler) {
         impl = new CalculatorImpl(resources, uiHandler);
     }
 
+    /**
+     * add a new num to expr
+     *
+     * @param num like 0,1,2,3,4,5,6,7,8,9
+     */
     @MainThread
     public void addNum(int num) {
         impl.call(CalculatorImpl.ADD_NUM, num);
     }
 
+    /**
+     * clear all expr
+     */
     @MainThread
     public void clearNum() {
         impl.call(CalculatorImpl.CLEAR_NUM);
     }
 
+    /**
+     * clear the last char in expr
+     */
     @MainThread
     public void clearBack() {
         impl.call(CalculatorImpl.CLEAR_BACK);
     }
 
+    /**
+     * calculate the expr
+     */
     @MainThread
     public void doCal() {
         impl.call(CalculatorImpl.DO_CAL);
     }
 
+    /**
+     * change the expr symbol form + to - or from - to +
+     */
     @MainThread
     public void changeSymbol() {
         impl.call(CalculatorImpl.CHANGE_SYMBOL);
     }
 
+    /**
+     * add a point(.) to expr
+     */
     @MainThread
     public void addPoint() {
         impl.call(CalculatorImpl.ADD_POINT);
     }
 
+    /**
+     * add a new num to expr
+     *
+     * @param which like Calculator.OPERATOR_ADD
+     */
     @MainThread
     public void addOperator(int which) {
         impl.call(CalculatorImpl.ADD_OPERATOR, which);
     }
 
+    /**
+     * update the TextView string
+     */
     @MainThread
     public void updateTextView() {
         impl.call(CalculatorImpl.UPDATE_TEXT_VIEW);
     }
 
+    /**
+     * destroy this calculator
+     */
     public void destroy() {
         impl.destroy();
     }

@@ -20,9 +20,9 @@ public class MainActivity extends AppCompatActivity {
     private Calculator calculator;
     private Button buttons[] = new Button[10];
     private TextView textView = null;
-    private Handler uiHandler = null;
 
     static {
+        // init logger
         Logger.addLogAdapter(new AndroidLogAdapter());
     }
 
@@ -32,7 +32,8 @@ public class MainActivity extends AppCompatActivity {
         setTitle(R.string.title);
         setContentView(R.layout.main);
 
-        uiHandler = new Handler((Message msg) -> {
+        // init the calculator
+        calculator = new Calculator(getResources(), new Handler((Message msg) -> {
             switch (msg.what) {
                 case Calculator.SET_TEXT_VIEW: {
                     if (textView != null) {
@@ -49,14 +50,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             return true;
-        });
-
-        calculator = new Calculator(getResources(), uiHandler);
+        }));
 
         init();
 
     }
 
+    /**
+     * add the onClickListener to buttons
+     */
     private void init() {
 
         textView = findViewById(R.id.textView);
